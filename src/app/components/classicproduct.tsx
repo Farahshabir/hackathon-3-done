@@ -28,8 +28,6 @@ export default function ClassicProduct() {
             className=""
             src={classicproduct}
             alt="Vita Classic Product"
-            // width={400}
-            // height={400}
           />
         </div>
       </div>

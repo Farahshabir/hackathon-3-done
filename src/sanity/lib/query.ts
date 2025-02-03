@@ -13,9 +13,8 @@ export const allProducts = defineQuery(
     }
     `
 )
-export const shopQuery = (shopId: string) => {
-    return defineQuery(`
-    *[_type == "product"]{
+export const shopQuery = defineQuery(
+    `*[_type == "product"]{
     _id,
     title,
     description,
@@ -25,5 +24,5 @@ export const shopQuery = (shopId: string) => {
     dicountPercentage,
     "productImage": productImage.asset->url,
     }[0]
-    `);
-}
+    `
+)

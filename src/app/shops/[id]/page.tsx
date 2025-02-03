@@ -4,15 +4,15 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { client } from "@/sanity/lib/client"; // Assuming Sanity client setup
+import { client } from "@/sanity/lib/client";
 
 interface Product {
   _id: string;
   title: string;
   description: string;
   price: number;
-  productImage: string; // Ensure this is the correct property for image URL
-  rating: {
+  productImage: string;
+  rating?: {
     rate: number;
     count: number;
   };
@@ -20,22 +20,24 @@ interface Product {
 }
 
 export default function ProductDetail() {
-  const { id } = useParams(); // Get product ID from route
+  const params = useParams();
   const router = useRouter();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<Product[]>([]);
 
+  const id = params?.id as string | undefined;
+
   // Fetch product from Sanity
   useEffect(() => {
-    const fetchProduct = async () => {
-      if (!id) {
-        setError("Product ID is missing");
-        setLoading(false);
-        return;
-      }
+    if (!id) {
+      setError("Product ID is missing");
+      setLoading(false);
+      return;
+    }
 
+    const fetchProduct = async () => {
       try {
         const data = await client.fetch(
           `*[_type == "product" && _id == $id][0]{
@@ -48,10 +50,15 @@ export default function ProductDetail() {
           }`,
           { id }
         );
-        setProduct({ ...data, quantity: 1 });
-        setLoading(false);
-      } catch (error) {
+        if (!data) {
+          setError("Product not found");
+        } else {
+          setProduct({ ...data, quantity: 1 });
+        }
+      } catch (err) {
+        console.error("Error fetching product from Sanity:", err);
         setError("Error fetching product from Sanity");
+      } finally {
         setLoading(false);
       }
     };
@@ -59,48 +66,40 @@ export default function ProductDetail() {
     fetchProduct();
   }, [id]);
 
-  // Handle cart functionality
+  // Handle cart functionality with LocalStorage
   useEffect(() => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
+    if (typeof window !== "undefined") {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        setCart(JSON.parse(storedCart));
+      }
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
   }, [cart]);
 
   const handleAddToCart = () => {
-    if (product) {
-      setCart((prevCart) => {
-        const existingProduct = prevCart.find((item) => item._id === product._id);
-        if (existingProduct) {
-          return prevCart.map((item) =>
-            item._id === product._id
-              ? { ...item, quantity: item.quantity! + 1 }
-              : item
-          );
-        } else {
-          return [...prevCart, { ...product, quantity: 1 }];
-        }
-      });
-    }
+    if (!product) return;
+    setCart((prevCart) => {
+      const existingProduct = prevCart.find((item) => item._id === product._id);
+      if (existingProduct) {
+        return prevCart.map((item) =>
+          item._id === product._id ? { ...item, quantity: item.quantity! + 1 } : item
+        );
+      }
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
   };
 
   const totalCartItems = cart.reduce((total, item) => total + (item.quantity || 0), 0);
 
-  if (loading) {
-    return <p className="text-center text-lg">Loading...</p>;
-  }
-
-  if (error) {
-    return <p className="text-center text-red-500">{error}</p>;
-  }
-
-  if (!product) {
-    return <p className="text-center text-lg">Product not found</p>;
-  }
+  if (loading) return <p className="text-center text-lg">Loading...</p>;
+  if (error) return <p className="text-center text-red-500">{error}</p>;
+  if (!product) return <p className="text-center text-lg">Product not found</p>;
 
   return (
     <>
@@ -139,38 +138,34 @@ export default function ProductDetail() {
             <div className="text-2xl font-bold text-gray-800">${product.price}</div>
 
             {/* Rating */}
-          
-<div className="flex items-center space-x-2">
-  <div className="flex text-yellow-500">
-    {product.rating && product.rating.rate !== undefined && product.rating.rate !== null ? (
-      <>
-        {Array(Math.floor(product.rating.rate))
-          .fill(<i className="fas fa-star"></i>)
-          .map((_, index) => (
-            <span key={index}>
-              <i className="fas fa-star"></i>
-            </span>
-          ))}
-        {product.rating.rate % 1 >= 0.5 && <i className="fas fa-star-half-alt"></i>}
-        {Array(5 - Math.floor(product.rating.rate) - (product.rating.rate % 1 >= 0.5 ? 1 : 0))
-          .fill(<i className="far fa-star"></i>)
-          .map((_, index) => (
-            <span key={index}>
-              <i className="far fa-star"></i>
-            </span>
-          ))}
-      </>
-    ) : (
-      <span className="text-gray-500">No ratings available</span>
-    )}
-  </div>
-  {product.rating && product.rating.count ? (
-    <span className="text-gray-500">({product.rating.count} reviews)</span>
-  ) : (
-    <span className="text-gray-500">No reviews yet</span>
-  )}
-</div>
-
+            <div className="flex items-center space-x-2">
+              <div className="flex text-yellow-500">
+                {product.rating?.rate ? (
+                  <>
+                    {Array(Math.floor(product.rating.rate))
+                      .fill(0)
+                      .map((_, index) => (
+                        <span key={index}>⭐</span>
+                      ))}
+                    {product.rating.rate % 1 >= 0.5 && <span>⭐½</span>}
+                    {Array(5 - Math.ceil(product.rating.rate))
+                      .fill(0)
+                      .map((_, index) => (
+                        <span key={index} className="text-gray-400">
+                          ☆
+                        </span>
+                      ))}
+                  </>
+                ) : (
+                  <span className="text-gray-500">No ratings available</span>
+                )}
+              </div>
+              {product.rating?.count ? (
+                <span className="text-gray-500">({product.rating.count} reviews)</span>
+              ) : (
+                <span className="text-gray-500">No reviews yet</span>
+              )}
+            </div>
 
             {/* Add to Cart and Go to Cart Buttons */}
             <div className="flex space-x-4 mt-8">

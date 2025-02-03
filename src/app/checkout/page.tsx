@@ -1,7 +1,5 @@
 "use client";
-import Link from "next/link";
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { client } from "@/sanity/lib/client"; // Sanity client setup
 

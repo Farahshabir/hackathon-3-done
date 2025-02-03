@@ -1,15 +1,13 @@
 import { createClient } from "next-sanity";
 
 const client = createClient({
-    projectId: "j0x90tj1", // Ensure fallback to an empty string
-    dataset: "production",
+    projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "", 
+    dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
     useCdn: true,
     apiVersion: "2023-10-10",
-  });
-  
+});
 
-// Fetch data from Sanity
-export async function sanityFetch({ query, params = {}}: { query: string; params?: any }) {
-  return await  client.fetch(query, params)
+// Fetch data from Sanity with proper typing
+export async function sanityFetch<T>({ query, params = {} }: { query: string; params?: Record<string, unknown> }): Promise<T> {
+    return await client.fetch<T>(query, params);
 }
-
